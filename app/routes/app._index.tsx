@@ -1,0 +1,163 @@
+import { useEffect } from "react";
+import type {
+  ActionFunctionArgs,
+  HeadersFunction,
+  LoaderFunctionArgs,
+} from "react-router";
+import { useFetcher } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { authenticate } from "../shopify.server";
+import { boundary } from "@shopify/shopify-app-react-router/server";
+import {
+  getMainThemeId,
+  installSections,
+  uninstallSections,
+} from "../utils/theme.server.js";
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  await authenticate.admin(request);
+
+  return null;
+};
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { admin } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const action = formData.get("action");
+
+  try {
+    const themeId = await getMainThemeId(admin);
+
+    if (action === "install") {
+      const files = await installSections(admin, themeId);
+      return {
+        success: true,
+        message: `Successfully installed ${files.length} theme files`,
+        action: "install",
+      };
+    } else if (action === "uninstall") {
+      const files = await uninstallSections(admin, themeId);
+      return {
+        success: true,
+        message: `Successfully uninstalled ${files.length} theme files`,
+        action: "uninstall",
+      };
+    }
+
+    return { success: false, message: "Invalid action" };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
+};
+
+export default function Index() {
+  const fetcher = useFetcher<typeof action>();
+  const shopify = useAppBridge();
+
+  const isLoading = ["loading", "submitting"].includes(fetcher.state);
+
+  useEffect(() => {
+    if (fetcher.data?.success) {
+      shopify.toast.show(fetcher.data.message);
+    } else if (fetcher.data?.success === false) {
+      shopify.toast.show(fetcher.data.message, { isError: true });
+    }
+  }, [fetcher.data, shopify]);
+
+  const handleInstall = () => {
+    const formData = new FormData();
+    formData.append("action", "install");
+    fetcher.submit(formData, { method: "POST" });
+  };
+
+  const handleUninstall = () => {
+    const formData = new FormData();
+    formData.append("action", "uninstall");
+    fetcher.submit(formData, { method: "POST" });
+  };
+
+  return (
+    <s-page heading="Theme Sections Injector">
+      <s-section heading="Manage Native Theme Sections">
+        <s-paragraph>
+          Install or uninstall native theme sections to your main theme. The
+          sections will appear under "Sections" (not "Apps") in the Theme
+          Editor.
+        </s-paragraph>
+
+        <s-stack direction="inline" gap="base">
+          <s-button
+            onClick={handleInstall}
+            variant="primary"
+            {...(isLoading ? { loading: true } : {})}
+          >
+            Install Sections
+          </s-button>
+          <s-button
+            onClick={handleUninstall}
+            variant="tertiary"
+            tone="critical"
+            {...(isLoading ? { loading: true } : {})}
+          >
+            Uninstall Sections
+          </s-button>
+        </s-stack>
+      </s-section>
+
+      <s-section heading="Included Sections">
+        <s-unordered-list>
+          <s-list-item>
+            <strong>App Hero Banner</strong> - Hero section with image, heading,
+            subheading, and button
+          </s-list-item>
+          <s-list-item>
+            <strong>App FAQ Accordion</strong> - Expandable FAQ section with
+            multiple items
+          </s-list-item>
+          <s-list-item>
+            <strong>App Testimonials Slider</strong> - Customer testimonials
+            with star ratings and slider
+          </s-list-item>
+        </s-unordered-list>
+      </s-section>
+
+      <s-section heading="How to Use">
+        <s-ordered-list>
+          <s-list-item>
+            Click "Install Sections" to upload the sections to your main theme
+          </s-list-item>
+          <s-list-item>Go to your theme editor (Customize theme)</s-list-item>
+          <s-list-item>
+            Click "Add section" and find the sections under "Sections" category
+          </s-list-item>
+          <s-list-item>
+            Customize the sections using the Theme Editor settings
+          </s-list-item>
+        </s-ordered-list>
+      </s-section>
+
+      <s-section slot="aside" heading="Technical Details">
+        <s-paragraph>
+          This app uses the <strong>REST Admin API</strong> (
+          <code>Asset.save</code> and <code>Asset.delete</code>) to inject
+          native Liquid sections directly into your theme.
+        </s-paragraph>
+        <s-paragraph>
+          Note: REST Admin API is legacy as of Oct 2024, but the Asset resource
+          remains the standard method for programmatic theme file management.
+        </s-paragraph>
+        <s-paragraph>
+          The sections are built with accessibility in mind, supporting keyboard
+          navigation, screen readers, and reduced motion preferences.
+        </s-paragraph>
+      </s-section>
+    </s-page>
+  );
+}
+
+export const headers: HeadersFunction = (headersArgs) => {
+  return boundary.headers(headersArgs);
+};
