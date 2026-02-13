@@ -64,21 +64,25 @@ Each block has settings in the Theme Editor:
 
 **FAQ Accordion:**
 
-- Heading and subheading
+- Heading and subheading (applied to the grouped container)
 - Allow multiple items open toggle
-- Add/remove FAQ items
-- Each item has question and answer fields
+- Add multiple FAQ blocks to the same section - they automatically group together
+- Each block has individual question and answer fields
+- Uses keyboard navigation (Arrow keys, Home, End, Enter, Space)
 
 **Testimonials Slider:**
 
-- Heading
+- Heading (applied to the grouped container)
 - Autoplay toggle
-- Add/remove testimonial slides
+- Add multiple Testimonial Slide blocks to the same section - they automatically group into a slider
 - Each slide includes:
   - Avatar image
   - Customer name and role
   - Star rating (1-5)
   - Review text
+- Responsive design: Shows 1-3 slides at once depending on screen size
+- Navigation controls (prev/next buttons and dots)
+- Touch/swipe support on mobile devices
 
 ## Project Structure
 
@@ -100,17 +104,15 @@ Each block has settings in the Theme Editor:
 │       │   ├── faq-accordion.liquid
 │       │   └── testimonials-slider.liquid
 │       ├── snippets/                # Reusable Liquid snippets
-│       │   ├── button.liquid
-│       │   └── stars.liquid
+│       │   └── stars.liquid         # Star rating component (used by testimonials)
 │       ├── assets/                  # CSS and JavaScript files
-│       │   ├── app-base.css
+│       │   ├── app-base.css         # Base styles and button components
 │       │   ├── hero-banner.css
 │       │   ├── faq-accordion.css
-│       │   ├── faq-accordion.js
+│       │   ├── faq-accordion.js     # Accordion interaction logic
 │       │   ├── testimonials-slider.css
-│       │   └── testimonials-slider.js
-│       └── locales/
-│           └── en.default.json
+│       │   └── testimonials-slider.js  # Slider navigation and autoplay
+│       └── shopify.extension.toml   # Extension configuration
 ├── prisma/
 │   └── schema.prisma                # Database schema
 └── shopify.app.toml                 # App configuration
@@ -123,6 +125,16 @@ Each block has settings in the Theme Editor:
 This app uses **Theme App Extensions** to inject blocks into the Shopify theme. This is the recommended and officially supported method by Shopify for apps that provide theme functionality.
 
 **Note:** The blocks will appear under the "Apps" category in the Theme Editor, not "Sections". This is by design for Theme App Extensions.
+
+### Block Grouping Logic
+
+The **FAQ Accordion** and **Testimonials Slider** blocks use dynamic grouping:
+
+- Multiple blocks of the same type added to the same section automatically group together
+- FAQ items combine into a single accordion container
+- Testimonial slides combine into a single slider with navigation
+- This is achieved through inline JavaScript that detects sibling blocks and creates a shared container
+- Each block instance remains independently editable in the Theme Editor
 
 ### Direct File Injection (Future)
 
