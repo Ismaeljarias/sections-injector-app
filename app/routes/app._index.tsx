@@ -21,22 +21,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const action = formData.get("action");
 
+  console.log("=== ACTION STARTED ===");
+  console.log("Action:", action);
+  console.log("Session shop:", session.shop);
+  console.log("Session scope:", session.scope);
+  console.log("Session accessToken exists:", !!session.accessToken);
+
   try {
     const themeId = await getMainThemeId(admin);
+    console.log("Got theme ID:", themeId);
 
     if (action === "install") {
-      const files = await installSections(admin, themeId);
+      const files = await installSections(session, themeId);
       return {
         success: true,
         message: `Successfully installed ${files.length} theme files`,
         action: "install",
       };
     } else if (action === "uninstall") {
-      const files = await uninstallSections(admin, themeId);
+      const files = await uninstallSections(session, themeId);
       return {
         success: true,
         message: `Successfully uninstalled ${files.length} theme files`,
@@ -46,6 +53,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     return { success: false, message: "Invalid action" };
   } catch (error) {
+    console.error("=== ERROR IN ACTION ===");
+    console.error(error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "An error occurred",
