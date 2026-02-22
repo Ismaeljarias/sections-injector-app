@@ -4,7 +4,7 @@ import type {
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher } from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -13,11 +13,19 @@ import {
   installSections,
   uninstallSections,
 } from "../utils/theme.server.js";
+import db from "../db.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
-  return null;
+  // Check installation status
+  const installStatus = await db.installationStatus.findUnique({
+    where: { shop: session.shop },
+  });
+
+  return {
+    sectionsInstalled: installStatus?.sectionsInstalled ?? false,
+  };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -37,6 +45,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (action === "install") {
       const files = await installSections(session, themeId);
+
+      // Update installation status
+      await db.installationStatus.upsert({
+        where: { shop: session.shop },
+        update: {
+          sectionsInstalled: true,
+          installedAt: new Date(),
+        },
+        create: {
+          shop: session.shop,
+          sectionsInstalled: true,
+          installedAt: new Date(),
+        },
+      });
+
       return {
         success: true,
         message: `Successfully installed ${files.length} theme files`,
@@ -44,6 +67,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       };
     } else if (action === "uninstall") {
       const files = await uninstallSections(session, themeId);
+
+      // Update installation status (or create if doesn't exist)
+      await db.installationStatus.upsert({
+        where: { shop: session.shop },
+        update: {
+          sectionsInstalled: false,
+        },
+        create: {
+          shop: session.shop,
+          sectionsInstalled: false,
+        },
+      });
+
       return {
         success: true,
         message: `Successfully uninstalled ${files.length} theme files`,
@@ -63,6 +99,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Index() {
+  const loaderData = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
 
@@ -92,27 +129,29 @@ export default function Index() {
     <s-page heading="Theme Sections Injector">
       <s-section heading="Manage Native Theme Sections">
         <s-paragraph>
-          Install or uninstall native theme sections to your main theme. The
-          sections will appear under "Sections" (not "Apps") in the Theme
-          Editor.
+          {loaderData.sectionsInstalled
+            ? "Your sections are currently installed in your theme. They appear under 'Sections' (not 'Apps') in the Theme Editor."
+            : "Install native theme sections to your main theme. The sections will appear under 'Sections' (not 'Apps') in the Theme Editor."}
         </s-paragraph>
 
         <s-stack direction="inline" gap="base">
           <s-button
             onClick={handleInstall}
-            variant="primary"
+            variant={loaderData.sectionsInstalled ? "secondary" : "primary"}
             {...(isLoading ? { loading: true } : {})}
           >
-            Install Sections
+            {loaderData.sectionsInstalled ? "Reinstall" : "Install"} Sections
           </s-button>
-          <s-button
-            onClick={handleUninstall}
-            variant="tertiary"
-            tone="critical"
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Uninstall Sections
-          </s-button>
+          {loaderData.sectionsInstalled && (
+            <s-button
+              onClick={handleUninstall}
+              variant="tertiary"
+              tone="critical"
+              {...(isLoading ? { loading: true } : {})}
+            >
+              Uninstall Sections
+            </s-button>
+          )}
         </s-stack>
       </s-section>
 
@@ -155,8 +194,9 @@ export default function Index() {
           native Liquid sections directly into your theme.
         </s-paragraph>
         <s-paragraph>
-          Note: REST Admin API is legacy as of Oct 2024, but the Asset resource
-          remains the standard method for programmatic theme file management.
+          Use the Install/Uninstall buttons to manage your theme sections. The
+          sections will appear under "Sections" (not "Apps") in the Theme
+          Editor.
         </s-paragraph>
         <s-paragraph>
           The sections are built with accessibility in mind, supporting keyboard
