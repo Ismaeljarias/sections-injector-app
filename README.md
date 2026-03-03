@@ -99,8 +99,6 @@ Each section has settings in the Theme Editor:
 ├── prisma/
 │   └── schema.prisma                # Database schema (tracks installation status)
 └── shopify.app.toml                 # App configuration
-```
-
 │ └── theme-extension/
 │ ├── blocks/ # Theme App Extension blocks
 │ │ ├── hero-banner.liquid
@@ -119,7 +117,6 @@ Each section has settings in the Theme Editor:
 ├── prisma/
 │ └── schema.prisma # Database schema
 └── shopify.app.toml # App configuration
-
 ````
 
 ## Technical Details
